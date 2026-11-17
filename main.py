@@ -86,6 +86,10 @@ def release_day_hours(comparable: dict) -> dict[int, float] | None:
     except (KeyError, TypeError, ValueError):
         return None
     hours: dict[int, float] = {}
+    # An hour's count is the mean of its minute reads, so average any
+    # duplicate points that fall in the same hour instead of keeping one.
+    sums: dict[int, float] = {}
+    counts: dict[int, int] = {}
     for point in comparable.get("hourly") or []:
         try:
             t = parse_time(point["from"])
@@ -94,7 +98,10 @@ def release_day_hours(comparable: dict) -> dict[int, float] | None:
             continue
         h = int((t - day_start).total_seconds() // 3600) + 1
         if 1 <= h <= 24 and isinstance(viewers, (int, float)) and viewers > 0:
-            hours[h] = float(viewers)
+            sums[h] = sums.get(h, 0.0) + float(viewers)
+            counts[h] = counts.get(h, 0) + 1
+    for h, total in sums.items():
+        hours[h] = total / counts[h]
     if hours.get(1) is None or hours[1] <= 0:
         return None
     return hours
